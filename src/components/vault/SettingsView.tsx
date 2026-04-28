@@ -1,11 +1,18 @@
-import { useState } from 'react'
-import { Eye, EyeOff, Sun, Moon, Shield, Trash2, Key } from 'lucide-react'
+import { useState, useEffect } from 'react'
+import { Eye, EyeOff, Sun, Moon, Shield, Trash2, Key, Fingerprint, CheckCircle } from 'lucide-react'
 import { useAuthStore } from '../../stores/auth'
 import { useUIStore } from '../../stores/ui'
 import { useVaultStore } from '../../stores/vault'
 import { clearVaultDB } from '../../utils/db'
 import { PasswordStrengthMeter } from '../ui/PasswordStrengthMeter'
 import { toast } from '../ui/Toast'
+import {
+  isWebAuthnSupported,
+  isPlatformAuthenticatorAvailable,
+  registerBiometric,
+  hasBiometricRegistered,
+  removeBiometricCredential,
+} from '../../utils/webauthn'
 
 interface Props {
   onNavigate: (page: string) => void
@@ -20,6 +27,34 @@ export function SettingsView({ onNavigate }: Props) {
   const [showOld, setShowOld] = useState(false)
   const [showNew, setShowNew] = useState(false)
   const [saving, setSaving] = useState(false)
+
+  const [biometricAvailable, setBiometricAvailable] = useState(false)
+  const [biometricRegistered, setBiometricRegistered] = useState(false)
+  const [registeringBiometric, setRegisteringBiometric] = useState(false)
+
+  useEffect(() => {
+    isPlatformAuthenticatorAvailable().then(setBiometricAvailable)
+    if (username) setBiometricRegistered(hasBiometricRegistered(username))
+  }, [username])
+
+  const handleRegisterBiometric = async () => {
+    if (!username) return
+    setRegisteringBiometric(true)
+    try {
+      const ok = await registerBiometric(username)
+      if (ok) { setBiometricRegistered(true); toast.success('Biometric registered! You can now unlock with Face ID or fingerprint.') }
+    } catch (err: any) {
+      if (err.name === 'NotAllowedError') toast.warning('Biometric setup was cancelled.')
+      else toast.error(err.message ?? 'Failed to register biometric.')
+    } finally { setRegisteringBiometric(false) }
+  }
+
+  const handleRemoveBiometric = () => {
+    if (!username) return
+    removeBiometricCredential(username)
+    setBiometricRegistered(false)
+    toast.success('Biometric credential removed.')
+  }
 
   const handleChangePw = async () => {
     if (pwForm.new !== pwForm.confirm) { toast.error("New passwords don't match"); return }
@@ -129,7 +164,35 @@ export function SettingsView({ onNavigate }: Props) {
           </div>
         )}
 
-        <div className="flex items-center justify-between">
+        {isWebAuthnSupported() && biometricAvailable && (
+          <div className="flex items-center justify-between pt-3 border-t border-white/10">
+            <div>
+              <div className="text-sm font-medium text-white flex items-center gap-2">
+                <Fingerprint className="w-4 h-4 text-purple-400" /> Biometric Unlock
+              </div>
+              <div className="text-xs text-gray-400 mt-0.5">
+                {biometricRegistered ? 'Face ID / fingerprint unlock is enabled' : 'Use Face ID or fingerprint to verify your identity'}
+              </div>
+            </div>
+            {biometricRegistered ? (
+              <div className="flex items-center gap-2">
+                <CheckCircle className="w-4 h-4 text-green-400" />
+                <button onClick={handleRemoveBiometric}
+                  className="px-3 py-1.5 rounded-lg bg-red-500/10 border border-red-500/30 text-xs text-red-400 hover:bg-red-500/20 transition-all">
+                  Remove
+                </button>
+              </div>
+            ) : (
+              <button onClick={handleRegisterBiometric} disabled={registeringBiometric}
+                className="flex items-center gap-2 px-3 py-1.5 rounded-lg glass border border-purple-500/30 text-xs text-purple-300 hover:text-white hover:bg-purple-500/10 transition-all disabled:opacity-50">
+                <Fingerprint className="w-3.5 h-3.5" />
+                {registeringBiometric ? 'Setting up...' : 'Enable'}
+              </button>
+            )}
+          </div>
+        )}
+
+        <div className="flex items-center justify-between pt-3 border-t border-white/10">
           <div>
             <div className="text-sm font-medium text-white">Two-Factor Authentication</div>
             <div className="text-xs text-gray-400">Add an extra layer of security</div>

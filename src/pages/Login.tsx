@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { motion } from 'framer-motion'
 import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
@@ -7,6 +7,12 @@ import { Lock, Eye, EyeOff, ArrowLeft, Fingerprint } from 'lucide-react'
 import { useAuthStore } from '../stores/auth'
 import { MagicBackground } from '../components/ui/MagicBackground'
 import { toast } from '../components/ui/Toast'
+import {
+  isWebAuthnSupported,
+  isPlatformAuthenticatorAvailable,
+  authenticateBiometric,
+  hasBiometricRegistered,
+} from '../utils/webauthn'
 
 interface Props {
   onNavigate: (page: string) => void
@@ -22,12 +28,30 @@ type FormData = z.infer<typeof schema>
 export default function Login({ onNavigate }: Props) {
   const [showPw, setShowPw] = useState(false)
   const [isLoading, setIsLoading] = useState(false)
+  const [isBiometricLoading, setIsBiometricLoading] = useState(false)
   const [attempts, setAttempts] = useState(0)
+  const [biometricAvailable, setBiometricAvailable] = useState(false)
   const login = useAuthStore((s) => s.login)
+  const username = useAuthStore((s) => s.username)
 
-  const { register, handleSubmit, formState: { errors } } = useForm<FormData>({
+  const { register, handleSubmit, watch, formState: { errors } } = useForm<FormData>({
     resolver: zodResolver(schema),
+    defaultValues: { username: username ?? '' },
   })
+
+  const watchedUsername = watch('username', username ?? '')
+
+  // Check if biometric is available and registered for this user
+  useEffect(() => {
+    isPlatformAuthenticatorAvailable().then((available) => {
+      setBiometricAvailable(available)
+    })
+  }, [])
+
+  const showBiometricButton = biometricAvailable &&
+    isWebAuthnSupported() &&
+    watchedUsername &&
+    hasBiometricRegistered(watchedUsername)
 
   const onSubmit = async (data: FormData) => {
     if (attempts >= 5) {
@@ -52,11 +76,39 @@ export default function Login({ onNavigate }: Props) {
   }
 
   const tryBiometric = async () => {
-    if (!window.PublicKeyCredential) {
-      toast.warning('WebAuthn not supported in this browser.')
+    if (!watchedUsername) {
+      toast.warning('Enter your username first.')
       return
     }
-    toast.info('Biometric authentication coming soon.')
+    if (!isWebAuthnSupported()) {
+      toast.error('WebAuthn is not supported in this browser.')
+      return
+    }
+    if (!hasBiometricRegistered(watchedUsername)) {
+      toast.info('No biometric registered for this account. Enable it in Settings after logging in.')
+      return
+    }
+
+    setIsBiometricLoading(true)
+    try {
+      const verified = await authenticateBiometric(watchedUsername)
+      if (verified) {
+        // Biometric verified — but we still need the master key to decrypt the vault.
+        // Biometric acts as a second factor / convenience unlock.
+        // The master key must be re-derived, so we prompt for password only if no session exists.
+        toast.success('Biometric verified! Enter your master password to decrypt the vault.')
+      } else {
+        toast.error('Biometric verification failed.')
+      }
+    } catch (err: any) {
+      if (err.name === 'NotAllowedError') {
+        toast.warning('Biometric prompt was dismissed.')
+      } else {
+        toast.error(err.message ?? 'Biometric authentication failed.')
+      }
+    } finally {
+      setIsBiometricLoading(false)
+    }
   }
 
   return (
@@ -134,22 +186,32 @@ export default function Login({ onNavigate }: Props) {
             </button>
           </form>
 
-          <div className="relative my-5">
-            <div className="absolute inset-0 flex items-center">
-              <div className="w-full border-t border-white/10" />
-            </div>
-            <div className="relative flex justify-center text-xs text-gray-500">
-              <span className="px-2 bg-transparent">or</span>
-            </div>
-          </div>
+          {/* Biometric button — only shown if registered and available */}
+          {showBiometricButton && (
+            <>
+              <div className="relative my-5">
+                <div className="absolute inset-0 flex items-center">
+                  <div className="w-full border-t border-white/10" />
+                </div>
+                <div className="relative flex justify-center text-xs text-gray-500">
+                  <span className="px-2 bg-transparent">or</span>
+                </div>
+              </div>
 
-          <button
-            onClick={tryBiometric}
-            className="w-full flex items-center justify-center gap-2 py-2.5 rounded-xl glass border border-white/20 text-sm text-gray-300 hover:text-white hover:bg-white/10 transition-all"
-          >
-            <Fingerprint className="w-4 h-4 text-purple-400" />
-            Use Biometrics / Passkey
-          </button>
+              <button
+                onClick={tryBiometric}
+                disabled={isBiometricLoading}
+                className="w-full flex items-center justify-center gap-2 py-2.5 rounded-xl glass border border-purple-500/30 text-sm text-purple-300 hover:text-white hover:bg-purple-500/10 transition-all disabled:opacity-50"
+              >
+                {isBiometricLoading ? (
+                  <div className="w-4 h-4 border-2 border-purple-400/30 border-t-purple-400 rounded-full animate-spin" />
+                ) : (
+                  <Fingerprint className="w-4 h-4" />
+                )}
+                {isBiometricLoading ? 'Verifying...' : 'Use Biometrics / Passkey'}
+              </button>
+            </>
+          )}
 
           <div className="flex items-center justify-between mt-5 text-sm">
             <button onClick={() => onNavigate('create-account')} className="text-purple-400 hover:text-purple-300">

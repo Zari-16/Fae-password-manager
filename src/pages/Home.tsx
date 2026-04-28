@@ -429,22 +429,22 @@ export default function Home({ onNavigate }: Props) {
             <motion.div
               initial={{ opacity: 0, y: 20 }} whileInView={{ opacity: 1, y: 0 }}
               viewport={{ once: true }}
-              className="card-fae space-y-4"
+              className="card-fae space-y-3"
             >
               <h3 className="font-semibold text-purple-300 flex items-center gap-2">
                 <Key className="w-4 h-4" /> Encryption Model
               </h3>
               {[
-                'AES-256-GCM symmetric encryption',
-                'PBKDF2-SHA256 with 310,000 iterations',
-                'Unique 32-byte salt per account',
-                'Unique 12-byte IV per encryption',
-                'Keys derived in-memory, never stored',
-                'WebCrypto API — hardware accelerated',
+                { label: 'AES-256-GCM symmetric encryption', done: true },
+                { label: 'PBKDF2-SHA256 with 310,000 iterations', done: true },
+                { label: 'Unique 32-byte salt per account', done: true },
+                { label: 'Unique 12-byte IV per encryption', done: true },
+                { label: 'Keys derived in-memory, never stored', done: true },
+                { label: 'WebCrypto API — hardware accelerated', done: true },
               ].map((item) => (
-                <div key={item} className="flex items-center gap-2 text-sm text-gray-300">
+                <div key={item.label} className="flex items-center gap-2 text-sm text-gray-300">
                   <CheckCircle className="w-3.5 h-3.5 text-green-400 shrink-0" />
-                  {item}
+                  {item.label}
                 </div>
               ))}
             </motion.div>
@@ -452,22 +452,64 @@ export default function Home({ onNavigate }: Props) {
             <motion.div
               initial={{ opacity: 0, y: 20 }} whileInView={{ opacity: 1, y: 0 }}
               viewport={{ once: true }} transition={{ delay: 0.1 }}
-              className="card-fae space-y-4"
+              className="card-fae space-y-3"
             >
               <h3 className="font-semibold text-pink-300 flex items-center gap-2">
                 <Shield className="w-4 h-4" /> Zero-Knowledge Guarantees
               </h3>
               {[
-                'Master password never transmitted',
-                'No plaintext data on any server',
-                'Vault decrypted only in memory',
-                'Memory cleared on vault lock',
-                'No analytics containing secrets',
-                'Clipboard auto-clears after 30s',
+                { label: 'Master password never transmitted', done: true },
+                { label: 'No plaintext data on any server', done: true },
+                { label: 'Vault decrypted only in memory', done: true },
+                { label: 'Memory cleared on vault lock', done: true },
+                { label: 'Clipboard auto-clears after 30 seconds', done: true },
+                { label: 'Auto-lock after 15 min inactivity', done: true },
               ].map((item) => (
-                <div key={item} className="flex items-center gap-2 text-sm text-gray-300">
+                <div key={item.label} className="flex items-center gap-2 text-sm text-gray-300">
                   <CheckCircle className="w-3.5 h-3.5 text-green-400 shrink-0" />
-                  {item}
+                  {item.label}
+                </div>
+              ))}
+            </motion.div>
+
+            <motion.div
+              initial={{ opacity: 0, y: 20 }} whileInView={{ opacity: 1, y: 0 }}
+              viewport={{ once: true }} transition={{ delay: 0.15 }}
+              className="card-fae space-y-3"
+            >
+              <h3 className="font-semibold text-green-300 flex items-center gap-2">
+                <CheckCircle className="w-4 h-4" /> Breach Detection
+              </h3>
+              {[
+                { label: 'Real HaveIBeenPwned API integration', done: true },
+                { label: 'k-anonymity — only first 5 SHA-1 chars sent', done: true },
+                { label: 'Full password never leaves your device', done: true },
+                { label: 'Padding headers prevent traffic analysis', done: true },
+              ].map((item) => (
+                <div key={item.label} className="flex items-center gap-2 text-sm text-gray-300">
+                  <CheckCircle className="w-3.5 h-3.5 text-green-400 shrink-0" />
+                  {item.label}
+                </div>
+              ))}
+            </motion.div>
+
+            <motion.div
+              initial={{ opacity: 0, y: 20 }} whileInView={{ opacity: 1, y: 0 }}
+              viewport={{ once: true }} transition={{ delay: 0.2 }}
+              className="card-fae space-y-3"
+            >
+              <h3 className="font-semibold text-blue-300 flex items-center gap-2">
+                <Shield className="w-4 h-4" /> Biometric Unlock
+              </h3>
+              {[
+                { label: 'WebAuthn / Passkey standard (FIDO2)', done: true },
+                { label: 'Face ID, fingerprint, Windows Hello', done: true },
+                { label: 'Device-bound — credential never transmitted', done: true },
+                { label: 'Enable / disable in Settings', done: true },
+              ].map((item) => (
+                <div key={item.label} className="flex items-center gap-2 text-sm text-gray-300">
+                  <CheckCircle className="w-3.5 h-3.5 text-green-400 shrink-0" />
+                  {item.label}
                 </div>
               ))}
             </motion.div>

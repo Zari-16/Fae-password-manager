@@ -1,8 +1,9 @@
 import { useMemo, useState } from 'react'
 import { motion } from 'framer-motion'
-import { AlertTriangle, CheckCircle, RefreshCw, XCircle } from 'lucide-react'
+import { AlertTriangle, CheckCircle, RefreshCw, XCircle, ShieldAlert, ShieldCheck } from 'lucide-react'
 import { useVaultStore } from '../../stores/vault'
 import { analyzePasswordStrength } from '../../utils/crypto'
+import { checkVaultBreaches, type BreachResult } from '../../utils/breach'
 import { toast } from '../ui/Toast'
 
 interface Issue {
@@ -15,31 +16,28 @@ interface Issue {
 export function SecurityCenterView() {
   const { credentials } = useVaultStore()
   const [checkingBreaches, setCheckingBreaches] = useState(false)
+  const [breachResults, setBreachResults] = useState<BreachResult[] | null>(null)
+  const [breachChecked, setBreachChecked] = useState(false)
 
   const analysis = useMemo(() => {
     const issues: Issue[] = []
     const passwordCounts: Record<string, string[]> = {}
+
     credentials.filter(c => !c.archived).forEach((c) => {
-      // Weak passwords
       const strength = analyzePasswordStrength(c.password)
       if (c.password && strength.score < 2) {
         issues.push({ type: 'weak', credentialId: c.id, credentialName: c.name, message: `Password is ${strength.label.toLowerCase()}` })
       }
-
-      // Track duplicates
       if (c.password) {
         if (!passwordCounts[c.password]) passwordCounts[c.password] = []
         passwordCounts[c.password].push(c.name)
       }
-
-      // Old passwords (> 90 days)
       const daysSinceUpdate = (Date.now() - new Date(c.updatedAt).getTime()) / (1000 * 60 * 60 * 24)
       if (daysSinceUpdate > 90 && c.password) {
         issues.push({ type: 'old', credentialId: c.id, credentialName: c.name, message: `Password not changed in ${Math.floor(daysSinceUpdate)} days` })
       }
     })
 
-    // Duplicate/reused passwords
     Object.entries(passwordCounts).forEach(([_pw, names]) => {
       if (names.length > 1) {
         names.forEach((name) => {
@@ -55,18 +53,36 @@ export function SecurityCenterView() {
     const weakCount = issues.filter(i => i.type === 'weak').length
     const reusedCount = issues.filter(i => i.type === 'reused').length
     const oldCount = issues.filter(i => i.type === 'old').length
-
-    const score = total === 0 ? 100 : Math.max(0, Math.round(100 - (weakCount * 15) - (reusedCount * 10) - (oldCount * 5)))
+    const breachCount = breachResults?.length ?? 0
+    const score = total === 0 ? 100 : Math.max(0, Math.round(
+      100 - (weakCount * 15) - (reusedCount * 10) - (oldCount * 5) - (breachCount * 20)
+    ))
 
     return { issues, score, weakCount, reusedCount, oldCount, total }
-  }, [credentials])
+  }, [credentials, breachResults])
 
   const checkBreaches = async () => {
+    const toCheck = credentials.filter(c => !c.archived && c.password)
+    if (toCheck.length === 0) { toast.info('No passwords to check.'); return }
+
     setCheckingBreaches(true)
-    // k-anonymity breach check would go here (HaveIBeenPwned API)
-    await new Promise(r => setTimeout(r, 1500))
-    setCheckingBreaches(false)
-    toast.info('Breach check complete. No known breaches found in your vault.')
+    setBreachResults(null)
+    try {
+      const results = await checkVaultBreaches(
+        toCheck.map(c => ({ id: c.id, name: c.name, password: c.password }))
+      )
+      setBreachResults(results)
+      setBreachChecked(true)
+      if (results.length === 0) {
+        toast.success('All clear! No passwords found in known data breaches.')
+      } else {
+        toast.error(`${results.length} password${results.length > 1 ? 's' : ''} found in known data breaches!`)
+      }
+    } catch (err: any) {
+      toast.error(err.message ?? 'Breach check failed.')
+    } finally {
+      setCheckingBreaches(false)
+    }
   }
 
   const scoreColor = analysis.score >= 80 ? 'text-green-400' : analysis.score >= 60 ? 'text-yellow-400' : 'text-red-400'
@@ -118,16 +134,58 @@ export function SecurityCenterView() {
       </div>
 
       {/* Breach Check */}
-      <div className="card-fae mb-6 flex items-center justify-between">
-        <div>
-          <h3 className="font-medium text-white mb-1">Breach Detection</h3>
-          <p className="text-sm text-gray-400">Check passwords against known data breaches using k-anonymity (privacy-safe)</p>
+      <div className="card-fae mb-6">
+        <div className="flex items-start justify-between gap-4">
+          <div className="flex-1">
+            <h3 className="font-medium text-white mb-1 flex items-center gap-2">
+              <ShieldAlert className="w-4 h-4 text-orange-400" />
+              Breach Detection
+            </h3>
+            <p className="text-sm text-gray-400 mb-1">
+              Checks your passwords against millions of known data breaches using the{' '}
+              <a href="https://haveibeenpwned.com/Passwords" target="_blank" rel="noopener noreferrer"
+                className="text-purple-400 hover:underline">HaveIBeenPwned</a> database.
+            </p>
+            <p className="text-xs text-gray-500">
+              Privacy-safe: only the first 5 characters of each password's SHA-1 hash are sent. Your actual passwords never leave your device.
+            </p>
+          </div>
+          <button onClick={checkBreaches} disabled={checkingBreaches}
+            className="btn-fae flex items-center gap-2 text-sm shrink-0 disabled:opacity-50">
+            <RefreshCw className={`w-4 h-4 ${checkingBreaches ? 'animate-spin' : ''}`} />
+            {checkingBreaches ? `Checking ${credentials.filter(c => c.password).length} passwords...` : 'Check Breaches'}
+          </button>
         </div>
-        <button onClick={checkBreaches} disabled={checkingBreaches}
-          className="btn-fae flex items-center gap-2 text-sm shrink-0 ml-4 disabled:opacity-50">
-          <RefreshCw className={`w-4 h-4 ${checkingBreaches ? 'animate-spin' : ''}`} />
-          {checkingBreaches ? 'Checking...' : 'Check Breaches'}
-        </button>
+
+        {/* Breach results */}
+        {breachChecked && (
+          <div className="mt-4 pt-4 border-t border-white/10">
+            {breachResults && breachResults.length === 0 ? (
+              <div className="flex items-center gap-2 text-green-400 text-sm">
+                <ShieldCheck className="w-4 h-4" />
+                No passwords found in known data breaches.
+              </div>
+            ) : breachResults && breachResults.length > 0 ? (
+              <div className="space-y-2">
+                <p className="text-sm text-red-400 font-medium mb-2">
+                  {breachResults.length} password{breachResults.length > 1 ? 's' : ''} found in data breaches:
+                </p>
+                {breachResults.map((r) => (
+                  <div key={r.credentialId}
+                    className="flex items-center justify-between p-2.5 rounded-xl bg-red-500/10 border border-red-500/20">
+                    <div className="flex items-center gap-2">
+                      <XCircle className="w-4 h-4 text-red-400 shrink-0" />
+                      <span className="text-sm text-white">{r.credentialName}</span>
+                    </div>
+                    <span className="text-xs text-red-400 font-mono">
+                      seen {r.breachCount.toLocaleString()} times
+                    </span>
+                  </div>
+                ))}
+              </div>
+            ) : null}
+          </div>
+        )}
       </div>
 
       {/* Issues */}
