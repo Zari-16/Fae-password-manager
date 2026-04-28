@@ -1,12 +1,13 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 import {
   Sparkles, Shield, Lock, Zap, Globe, Smartphone, ChevronDown,
   CheckCircle, Star, ArrowRight,
   Key, RefreshCw,
-  Heart, MessageSquarePlus, Send, X, Mail, Instagram, Linkedin, ExternalLink
+  Heart, MessageSquarePlus, Send, X, Mail, Instagram, Linkedin, ExternalLink, Loader2
 } from 'lucide-react'
 import { MagicBackground } from '../components/ui/MagicBackground'
+import { supabase } from '../lib/supabase'
 
 interface Feedback {
   id: string
@@ -14,17 +15,7 @@ interface Feedback {
   role: string
   text: string
   stars: number
-  date: string
-}
-
-const FEEDBACK_KEY = 'fae-public-feedback'
-
-function loadFeedback(): Feedback[] {
-  try { return JSON.parse(localStorage.getItem(FEEDBACK_KEY) ?? '[]') } catch { return [] }
-}
-
-function saveFeedback(list: Feedback[]) {
-  localStorage.setItem(FEEDBACK_KEY, JSON.stringify(list))
+  created_at: string
 }
 
 interface Props {
@@ -60,28 +51,48 @@ const faqs = [
 ]
 
 function FeedbackSection() {
-  const [feedbacks, setFeedbacks] = useState<Feedback[]>(() => loadFeedback())
+  const [feedbacks, setFeedbacks] = useState<Feedback[]>([])
+  const [loading, setLoading] = useState(true)
   const [showForm, setShowForm] = useState(false)
   const [form, setForm] = useState({ name: '', role: '', text: '', stars: 5 })
+  const [submitting, setSubmitting] = useState(false)
   const [submitted, setSubmitted] = useState(false)
+  const [error, setError] = useState<string | null>(null)
 
-  const handleSubmit = () => {
+  useEffect(() => {
+    fetchFeedback()
+  }, [])
+
+  const fetchFeedback = async () => {
+    setLoading(true)
+    const { data, error } = await supabase
+      .from('feedback')
+      .select('*')
+      .order('created_at', { ascending: false })
+    if (!error && data) setFeedbacks(data)
+    setLoading(false)
+  }
+
+  const handleSubmit = async () => {
     if (!form.name.trim() || !form.text.trim()) return
-    const newFeedback: Feedback = {
-      id: crypto.randomUUID(),
+    setSubmitting(true)
+    setError(null)
+    const { error } = await supabase.from('feedback').insert({
       name: form.name.trim(),
       role: form.role.trim(),
       text: form.text.trim(),
       stars: form.stars,
-      date: new Date().toLocaleDateString(),
+    })
+    if (error) {
+      setError('Failed to post feedback. Please try again.')
+    } else {
+      setForm({ name: '', role: '', text: '', stars: 5 })
+      setShowForm(false)
+      setSubmitted(true)
+      setTimeout(() => setSubmitted(false), 3000)
+      fetchFeedback()
     }
-    const updated = [newFeedback, ...feedbacks]
-    saveFeedback(updated)
-    setFeedbacks(updated)
-    setForm({ name: '', role: '', text: '', stars: 5 })
-    setShowForm(false)
-    setSubmitted(true)
-    setTimeout(() => setSubmitted(false), 3000)
+    setSubmitting(false)
   }
 
   return (
@@ -136,7 +147,6 @@ function FeedbackSection() {
                 </button>
               </div>
 
-              {/* Star rating */}
               <div>
                 <label className="block text-xs text-gray-400 mb-1.5">Rating</label>
                 <div className="flex gap-1">
@@ -153,63 +163,53 @@ function FeedbackSection() {
               <div className="grid grid-cols-2 gap-3">
                 <div>
                   <label className="block text-xs text-gray-400 mb-1.5">Your Name *</label>
-                  <input
-                    value={form.name}
-                    onChange={e => setForm(f => ({ ...f, name: e.target.value }))}
-                    className="input-fae text-sm"
-                    placeholder="Jane D."
-                    maxLength={40}
-                  />
+                  <input value={form.name} onChange={e => setForm(f => ({ ...f, name: e.target.value }))}
+                    className="input-fae text-sm" placeholder="Jane D." maxLength={40} />
                 </div>
                 <div>
                   <label className="block text-xs text-gray-400 mb-1.5">Role / Title</label>
-                  <input
-                    value={form.role}
-                    onChange={e => setForm(f => ({ ...f, role: e.target.value }))}
-                    className="input-fae text-sm"
-                    placeholder="Developer"
-                    maxLength={40}
-                  />
+                  <input value={form.role} onChange={e => setForm(f => ({ ...f, role: e.target.value }))}
+                    className="input-fae text-sm" placeholder="Developer" maxLength={40} />
                 </div>
               </div>
 
               <div>
                 <label className="block text-xs text-gray-400 mb-1.5">Your Feedback *</label>
-                <textarea
-                  value={form.text}
-                  onChange={e => setForm(f => ({ ...f, text: e.target.value }))}
-                  className="input-fae text-sm resize-none h-24"
-                  placeholder="Share your experience with Fae..."
-                  maxLength={300}
-                />
+                <textarea value={form.text} onChange={e => setForm(f => ({ ...f, text: e.target.value }))}
+                  className="input-fae text-sm resize-none h-24" placeholder="Share your experience with Fae..."
+                  maxLength={300} />
                 <div className="text-xs text-gray-600 text-right mt-1">{form.text.length}/300</div>
               </div>
 
-              <button
-                onClick={handleSubmit}
-                disabled={!form.name.trim() || !form.text.trim()}
+              {error && <p className="text-red-400 text-xs">{error}</p>}
+
+              <button onClick={handleSubmit}
+                disabled={!form.name.trim() || !form.text.trim() || submitting}
                 className="btn-fae w-full flex items-center justify-center gap-2 text-sm py-2.5 disabled:opacity-40"
               >
-                <Send className="w-4 h-4" /> Post Feedback
+                {submitting
+                  ? <><Loader2 className="w-4 h-4 animate-spin" /> Posting...</>
+                  : <><Send className="w-4 h-4" /> Post Feedback</>}
               </button>
             </motion.div>
           )}
         </AnimatePresence>
 
         {/* Feedback cards */}
-        {feedbacks.length === 0 ? (
-          <motion.div
-            initial={{ opacity: 0 }} whileInView={{ opacity: 1 }} viewport={{ once: true }}
-            className="text-center py-12"
-          >
+        {loading ? (
+          <div className="flex justify-center py-12">
+            <Loader2 className="w-6 h-6 text-purple-400 animate-spin" />
+          </div>
+        ) : feedbacks.length === 0 ? (
+          <motion.div initial={{ opacity: 0 }} whileInView={{ opacity: 1 }} viewport={{ once: true }}
+            className="text-center py-12">
             <MessageSquarePlus className="w-12 h-12 mx-auto mb-3 text-gray-600" />
             <p className="text-gray-500 text-sm">No feedback yet. Be the first to share your experience!</p>
           </motion.div>
         ) : (
           <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-5">
             {feedbacks.map((fb, i) => (
-              <motion.div
-                key={fb.id}
+              <motion.div key={fb.id}
                 initial={{ opacity: 0, y: 20 }} whileInView={{ opacity: 1, y: 0 }}
                 viewport={{ once: true }} transition={{ delay: i * 0.06 }}
                 className="card-fae"
@@ -227,7 +227,9 @@ function FeedbackSection() {
                     <div className="font-medium text-white text-sm">{fb.name}</div>
                     {fb.role && <div className="text-xs text-gray-500">{fb.role}</div>}
                   </div>
-                  <div className="text-xs text-gray-600">{fb.date}</div>
+                  <div className="text-xs text-gray-600">
+                    {new Date(fb.created_at).toLocaleDateString()}
+                  </div>
                 </div>
               </motion.div>
             ))}
