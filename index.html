@@ -1,0 +1,41 @@
+<!doctype html>
+<html lang="en" class="dark">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+
+    <!-- SEO -->
+    <title>Fae Password Manager — Zero-Knowledge Encrypted Vault</title>
+    <meta name="description" content="Your magical vault for passwords — encrypted, private, and stored entirely under your control. Zero-knowledge, local-first, AES-256-GCM." />
+    <meta name="keywords" content="password manager, zero knowledge, encrypted, local, secure, privacy" />
+    <meta name="author" content="Fae Password Manager" />
+
+    <!-- Open Graph -->
+    <meta property="og:title" content="Fae Password Manager" />
+    <meta property="og:description" content="Zero-knowledge encrypted password vault. Your passwords never leave your device." />
+    <meta property="og:type" content="website" />
+
+    <!-- PWA -->
+    <meta name="theme-color" content="#9333ea" />
+    <meta name="apple-mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+    <meta name="apple-mobile-web-app-title" content="Fae Vault" />
+    <link rel="icon" type="image/svg+xml" href="/fae-icon.svg" />
+    <link rel="apple-touch-icon" href="/pwa-192x192.png" />
+
+    <!-- Security headers (also set via server/Netlify/Vercel config) -->
+    <meta http-equiv="X-Content-Type-Options" content="nosniff" />
+    <meta http-equiv="X-Frame-Options" content="DENY" />
+    <meta http-equiv="Referrer-Policy" content="strict-origin-when-cross-origin" />
+    <meta http-equiv="Permissions-Policy" content="camera=(), microphone=(), geolocation=()" />
+
+    <!-- Fonts -->
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Playfair+Display:ital,wght@0,400;0,600;0,700;1,400&display=swap" rel="stylesheet" />
+  </head>
+  <body>
+    <div id="root"></div>
+    <script type="module" src="/src/main.tsx"></script>
+  </body>
+</html>
