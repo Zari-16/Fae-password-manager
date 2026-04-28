@@ -501,10 +501,10 @@ export default function Home({ onNavigate }: Props) {
             {/* Profile */}
             <div className="flex items-center gap-4 pb-4 border-b border-white/10">
               <div className="w-14 h-14 rounded-full bg-gradient-to-br from-purple-500 to-pink-500 flex items-center justify-center text-white text-xl font-bold shrink-0">
-                Z
+                ✨
               </div>
               <div>
-                <div className="font-semibold text-white">Zariyat Maudarbux</div>
+                <div className="font-semibold text-white">Fae</div>
                 <a
                   href="https://zari-16.github.io/Profile/"
                   target="_blank" rel="noopener noreferrer"
