@@ -6,10 +6,12 @@ interface Props {
   page: 'privacy' | 'terms' | 'security-policy'
 }
 
+const LAST_UPDATED = new Date().toLocaleDateString('en-US', { month: 'long', year: 'numeric' })
+
 const content = {
   privacy: {
     title: 'Privacy Policy',
-    lastUpdated: 'January 2025',
+    lastUpdated: LAST_UPDATED,
     sections: [
       {
         heading: 'Our Core Commitment',
@@ -47,7 +49,7 @@ const content = {
   },
   terms: {
     title: 'Terms of Use',
-    lastUpdated: 'January 2025',
+    lastUpdated: LAST_UPDATED,
     sections: [
       {
         heading: 'Acceptance',
@@ -81,7 +83,7 @@ const content = {
   },
   'security-policy': {
     title: 'Security Practices',
-    lastUpdated: 'January 2025',
+    lastUpdated: LAST_UPDATED,
     sections: [
       {
         heading: 'Encryption Standard',
