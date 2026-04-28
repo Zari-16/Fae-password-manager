@@ -1,11 +1,31 @@
-import { motion } from 'framer-motion'
+import { useState } from 'react'
+import { motion, AnimatePresence } from 'framer-motion'
 import {
   Sparkles, Shield, Lock, Zap, Globe, Smartphone, ChevronDown,
   CheckCircle, Star, ArrowRight,
   Key, RefreshCw,
-  Heart
+  Heart, MessageSquarePlus, Send, X
 } from 'lucide-react'
 import { MagicBackground } from '../components/ui/MagicBackground'
+
+interface Feedback {
+  id: string
+  name: string
+  role: string
+  text: string
+  stars: number
+  date: string
+}
+
+const FEEDBACK_KEY = 'fae-public-feedback'
+
+function loadFeedback(): Feedback[] {
+  try { return JSON.parse(localStorage.getItem(FEEDBACK_KEY) ?? '[]') } catch { return [] }
+}
+
+function saveFeedback(list: Feedback[]) {
+  localStorage.setItem(FEEDBACK_KEY, JSON.stringify(list))
+}
 
 interface Props {
   onNavigate: (page: string) => void
@@ -38,6 +58,185 @@ const faqs = [
   { q: 'Is Fae free?', a: 'Yes. Fae is completely free and open source. Your security should never be paywalled.' },
   { q: 'What encryption does Fae use?', a: 'AES-256-GCM for vault encryption, PBKDF2 with SHA-256 and 310,000 iterations for key derivation, and unique salts and IVs per operation.' },
 ]
+
+function FeedbackSection() {
+  const [feedbacks, setFeedbacks] = useState<Feedback[]>(() => loadFeedback())
+  const [showForm, setShowForm] = useState(false)
+  const [form, setForm] = useState({ name: '', role: '', text: '', stars: 5 })
+  const [submitted, setSubmitted] = useState(false)
+
+  const handleSubmit = () => {
+    if (!form.name.trim() || !form.text.trim()) return
+    const newFeedback: Feedback = {
+      id: crypto.randomUUID(),
+      name: form.name.trim(),
+      role: form.role.trim(),
+      text: form.text.trim(),
+      stars: form.stars,
+      date: new Date().toLocaleDateString(),
+    }
+    const updated = [newFeedback, ...feedbacks]
+    saveFeedback(updated)
+    setFeedbacks(updated)
+    setForm({ name: '', role: '', text: '', stars: 5 })
+    setShowForm(false)
+    setSubmitted(true)
+    setTimeout(() => setSubmitted(false), 3000)
+  }
+
+  return (
+    <section id="feedback" className="relative z-10 py-24 px-4">
+      <div className="max-w-5xl mx-auto">
+        <motion.div
+          initial={{ opacity: 0, y: 20 }} whileInView={{ opacity: 1, y: 0 }}
+          viewport={{ once: true }} className="text-center mb-12"
+        >
+          <h2 className="text-4xl font-serif font-bold mb-3">
+            What People <span className="gradient-text">Are Saying</span>
+          </h2>
+          <p className="text-gray-400 text-sm max-w-md mx-auto">
+            Real feedback from real users. No fake reviews — only what people actually share.
+          </p>
+        </motion.div>
+
+        {/* Submit button */}
+        <div className="flex justify-center mb-8">
+          <button
+            onClick={() => setShowForm(!showForm)}
+            className="btn-fae flex items-center gap-2 text-sm"
+          >
+            <MessageSquarePlus className="w-4 h-4" />
+            Share Your Feedback
+          </button>
+        </div>
+
+        {/* Success message */}
+        <AnimatePresence>
+          {submitted && (
+            <motion.div
+              initial={{ opacity: 0, y: -10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }}
+              className="max-w-md mx-auto mb-6 p-3 rounded-xl bg-green-500/10 border border-green-500/30 text-green-300 text-sm text-center flex items-center justify-center gap-2"
+            >
+              <CheckCircle className="w-4 h-4" /> Thank you! Your feedback has been posted.
+            </motion.div>
+          )}
+        </AnimatePresence>
+
+        {/* Feedback form */}
+        <AnimatePresence>
+          {showForm && (
+            <motion.div
+              initial={{ opacity: 0, y: -10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -10 }}
+              className="max-w-lg mx-auto card-fae mb-10 space-y-4"
+            >
+              <div className="flex items-center justify-between">
+                <h3 className="font-semibold text-white">Leave Feedback</h3>
+                <button onClick={() => setShowForm(false)} className="text-gray-400 hover:text-white">
+                  <X className="w-4 h-4" />
+                </button>
+              </div>
+
+              {/* Star rating */}
+              <div>
+                <label className="block text-xs text-gray-400 mb-1.5">Rating</label>
+                <div className="flex gap-1">
+                  {[1, 2, 3, 4, 5].map((s) => (
+                    <button key={s} onClick={() => setForm(f => ({ ...f, stars: s }))}>
+                      <Star className={`w-6 h-6 transition-colors ${
+                        s <= form.stars ? 'text-yellow-400 fill-current' : 'text-gray-600'
+                      }`} />
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="block text-xs text-gray-400 mb-1.5">Your Name *</label>
+                  <input
+                    value={form.name}
+                    onChange={e => setForm(f => ({ ...f, name: e.target.value }))}
+                    className="input-fae text-sm"
+                    placeholder="Jane D."
+                    maxLength={40}
+                  />
+                </div>
+                <div>
+                  <label className="block text-xs text-gray-400 mb-1.5">Role / Title</label>
+                  <input
+                    value={form.role}
+                    onChange={e => setForm(f => ({ ...f, role: e.target.value }))}
+                    className="input-fae text-sm"
+                    placeholder="Developer"
+                    maxLength={40}
+                  />
+                </div>
+              </div>
+
+              <div>
+                <label className="block text-xs text-gray-400 mb-1.5">Your Feedback *</label>
+                <textarea
+                  value={form.text}
+                  onChange={e => setForm(f => ({ ...f, text: e.target.value }))}
+                  className="input-fae text-sm resize-none h-24"
+                  placeholder="Share your experience with Fae..."
+                  maxLength={300}
+                />
+                <div className="text-xs text-gray-600 text-right mt-1">{form.text.length}/300</div>
+              </div>
+
+              <button
+                onClick={handleSubmit}
+                disabled={!form.name.trim() || !form.text.trim()}
+                className="btn-fae w-full flex items-center justify-center gap-2 text-sm py-2.5 disabled:opacity-40"
+              >
+                <Send className="w-4 h-4" /> Post Feedback
+              </button>
+            </motion.div>
+          )}
+        </AnimatePresence>
+
+        {/* Feedback cards */}
+        {feedbacks.length === 0 ? (
+          <motion.div
+            initial={{ opacity: 0 }} whileInView={{ opacity: 1 }} viewport={{ once: true }}
+            className="text-center py-12"
+          >
+            <MessageSquarePlus className="w-12 h-12 mx-auto mb-3 text-gray-600" />
+            <p className="text-gray-500 text-sm">No feedback yet. Be the first to share your experience!</p>
+          </motion.div>
+        ) : (
+          <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-5">
+            {feedbacks.map((fb, i) => (
+              <motion.div
+                key={fb.id}
+                initial={{ opacity: 0, y: 20 }} whileInView={{ opacity: 1, y: 0 }}
+                viewport={{ once: true }} transition={{ delay: i * 0.06 }}
+                className="card-fae"
+              >
+                <div className="flex gap-0.5 mb-3">
+                  {[1,2,3,4,5].map((s) => (
+                    <Star key={s} className={`w-4 h-4 ${
+                      s <= fb.stars ? 'text-yellow-400 fill-current' : 'text-gray-700'
+                    }`} />
+                  ))}
+                </div>
+                <p className="text-sm text-gray-300 mb-4 leading-relaxed">"{fb.text}"</p>
+                <div className="flex items-end justify-between">
+                  <div>
+                    <div className="font-medium text-white text-sm">{fb.name}</div>
+                    {fb.role && <div className="text-xs text-gray-500">{fb.role}</div>}
+                  </div>
+                  <div className="text-xs text-gray-600">{fb.date}</div>
+                </div>
+              </motion.div>
+            ))}
+          </div>
+        )}
+      </div>
+    </section>
+  )
+}
 
 export default function Home({ onNavigate }: Props) {
   return (
@@ -275,43 +474,8 @@ export default function Home({ onNavigate }: Props) {
         </div>
       </section>
 
-      {/* Testimonials */}
-      <section className="relative z-10 py-24 px-4">
-        <div className="max-w-5xl mx-auto">
-          <motion.h2
-            initial={{ opacity: 0, y: 20 }} whileInView={{ opacity: 1, y: 0 }}
-            viewport={{ once: true }}
-            className="text-4xl font-serif font-bold text-center mb-12"
-          >
-            Loved by <span className="gradient-text">Security Enthusiasts</span>
-          </motion.h2>
-          <div className="grid md:grid-cols-3 gap-5">
-            {[
-              { name: 'Alex M.', role: 'Security Engineer', text: 'Finally a password manager I can actually trust. The zero-knowledge model is implemented correctly.', stars: 5 },
-              { name: 'Sarah K.', role: 'Privacy Advocate', text: 'The magical UI makes security feel approachable. My whole family uses it now.', stars: 5 },
-              { name: 'James R.', role: 'Developer', text: 'Open source, local-first, beautiful design. This is what password managers should be.', stars: 5 },
-            ].map((t, i) => (
-              <motion.div
-                key={t.name}
-                initial={{ opacity: 0, y: 20 }} whileInView={{ opacity: 1, y: 0 }}
-                viewport={{ once: true }} transition={{ delay: i * 0.1 }}
-                className="card-fae"
-              >
-                <div className="flex gap-0.5 mb-3">
-                  {Array.from({ length: t.stars }).map((_, j) => (
-                    <Star key={j} className="w-4 h-4 text-yellow-400 fill-current" />
-                  ))}
-                </div>
-                <p className="text-sm text-gray-300 mb-4 leading-relaxed">"{t.text}"</p>
-                <div>
-                  <div className="font-medium text-white text-sm">{t.name}</div>
-                  <div className="text-xs text-gray-500">{t.role}</div>
-                </div>
-              </motion.div>
-            ))}
-          </div>
-        </div>
-      </section>
+      {/* Feedback */}
+      <FeedbackSection />
 
       {/* FAQ */}
       <section id="faq" className="relative z-10 py-24 px-4">
